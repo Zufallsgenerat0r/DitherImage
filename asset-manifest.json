@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/image-dithering-app/static/css/main.3601a7d9.css",
+    "main.js": "/image-dithering-app/static/js/main.d371bb4b.js",
+    "index.html": "/image-dithering-app/index.html",
+    "main.3601a7d9.css.map": "/image-dithering-app/static/css/main.3601a7d9.css.map",
+    "main.d371bb4b.js.map": "/image-dithering-app/static/js/main.d371bb4b.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.3601a7d9.css",
+    "static/js/main.d371bb4b.js"
+  ]
+}
