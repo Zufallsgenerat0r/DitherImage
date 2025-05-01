@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 const ImageDithering = () => {
   const [originalImage, setOriginalImage] = useState(null);
@@ -13,12 +13,38 @@ const ImageDithering = () => {
     resize: false, 
     maxDimension: 400,
     outputFormat: 'png', // png, gif, webp
-    enhanceContrast: false
+    enhanceContrast: false,
+    gifQuality: 10 // 1-30, where 1 is best quality, 30 is fastest
   });
   const [originalSize, setOriginalSize] = useState(0);
   const [ditheredSize, setDitheredSize] = useState(0);
   const canvasRef = useRef(null);
   const resultCanvasRef = useRef(null);
+  const [gifEncoder, setGifEncoder] = useState(null);
+
+  // Initialize GIF.js encoder when component mounts
+  useEffect(() => {
+    // Check if window.GIF is available (it will be after the script loads)
+    if (window.GIF) {
+      return; // GIF already loaded
+    }
+
+    // Load GIF.js script dynamically
+    const script = document.createElement('script');
+    script.src = '/gif.js/gif.js';
+    script.async = true;
+    
+    script.onload = () => {
+      console.log('GIF.js script loaded');
+    };
+    
+    document.body.appendChild(script);
+    
+    // Cleanup function to remove the script when component unmounts
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -40,7 +66,9 @@ const ImageDithering = () => {
   const updateSettings = (e) => {
     const { name, value, type } = e.target;
     // Make sure we convert range and number inputs to numbers
-    const newValue = (type === 'number' || type === 'range' || name === 'diffusionFactor' || name === 'colorDepth' || name === 'customColors') 
+    const newValue = (type === 'number' || type === 'range' || 
+                     name === 'diffusionFactor' || name === 'colorDepth' || 
+                     name === 'customColors' || name === 'gifQuality') 
       ? parseFloat(value) 
       : value;
     
@@ -106,29 +134,72 @@ const ImageDithering = () => {
     const resultCtx = resultCanvas.getContext('2d');
     resultCtx.putImageData(ditheredData, 0, 0);
     
-    // Get the dithered image as data URL in the selected format
-    let mimeType = 'image/png';
-    let quality = 1.0;
-    
-    switch(settings.outputFormat) {
-      case 'gif':
-        mimeType = 'image/gif';
-        break;
-      case 'webp':
+    // Handle different output formats
+    if (settings.outputFormat === 'gif' && window.GIF) {
+      // Create actual GIF using gif.js
+      createGif(resultCanvas, width, height);
+    } else {
+      // Use standard format (PNG or WebP)
+      let mimeType = 'image/png';
+      let quality = 1.0;
+      
+      if (settings.outputFormat === 'webp') {
         mimeType = 'image/webp';
         quality = 0.8; // Better compression for webp
-        break;
-      default: // png
-        mimeType = 'image/png';
+      }
+      
+      setDitheredImage(resultCanvas.toDataURL(mimeType, quality));
+      
+      // Calculate approximate size
+      resultCanvas.toBlob((blob) => {
+        setDitheredSize(blob.size);
+        setIsProcessing(false);
+      }, mimeType, quality);
+    }
+  };
+  
+  // Create an actual GIF using gif.js
+  const createGif = (canvas, width, height) => {
+    // Ensure GIF.js is loaded
+    if (!window.GIF) {
+      console.error('GIF.js not loaded');
+      setIsProcessing(false);
+      return;
     }
     
-    setDitheredImage(resultCanvas.toDataURL(mimeType, quality));
+    // Configure GIF encoder
+    const gif = new window.GIF({
+      workers: 2,
+      quality: settings.gifQuality, // 1 is best quality, 30 is fastest
+      width: width,
+      height: height,
+      workerScript: '/gif.js/gif.worker.js',
+      transparent: null, // null for no transparency
+      background: '#ffffff', // white background
+      dither: false // we already applied our own dithering
+    });
     
-    // Calculate approximate size
-    resultCanvas.toBlob((blob) => {
+    // Add the frame (just one frame for static image)
+    gif.addFrame(canvas, {
+      copy: true,
+      delay: 0 
+    });
+    
+    // Process the GIF
+    gif.on('finished', (blob) => {
+      // Create URL for the blob
+      const gifUrl = URL.createObjectURL(blob);
+      setDitheredImage(gifUrl);
       setDitheredSize(blob.size);
       setIsProcessing(false);
-    }, mimeType, quality);
+    });
+    
+    gif.on('progress', (p) => {
+      console.log(`GIF encoding progress: ${Math.round(p * 100)}%`);
+    });
+    
+    // Start the GIF rendering
+    gif.render();
   };
   
   // Helper function to enhance image contrast
@@ -621,9 +692,28 @@ const ImageDithering = () => {
             >
               <option value="png">PNG (Lossless)</option>
               <option value="webp">WebP (Efficient)</option>
-              <option value="gif">GIF (Smallest)</option>
+              <option value="gif">GIF (Smallest, True GIF)</option>
             </select>
           </div>
+          
+          {settings.outputFormat === 'gif' && (
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                GIF Quality: {settings.gifQuality} 
+                <span className="text-xs text-gray-500 ml-2">(Lower = better quality, higher = smaller size)</span>
+              </label>
+              <input 
+                type="range"
+                name="gifQuality"
+                min="1"
+                max="20"
+                step="1"
+                value={settings.gifQuality}
+                onChange={updateSettings}
+                className="w-full"
+              />
+            </div>
+          )}
         </div>
         
         <div className="p-4 bg-white shadow rounded flex flex-col">
@@ -727,8 +817,7 @@ const ImageDithering = () => {
       
       <div className="mt-10 text-sm text-gray-600 max-w-2xl text-center">
         <p>
-          Note: For maximum compression, use Black & White palette with Floyd-Steinberg dithering. 
-          The downloaded image is in PNG format for quality, but you can convert it to GIF for even smaller file sizes.
+          Note: For maximum compression, use the GIF format with Black & White palette, resize to a smaller dimension, and adjust the GIF quality slider. This combination can achieve extreme file size reduction.
         </p>
       </div>
     </div>
