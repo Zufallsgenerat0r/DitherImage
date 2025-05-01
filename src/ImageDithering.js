@@ -4,18 +4,116 @@ const ImageDithering = () => {
   const [originalImage, setOriginalImage] = useState(null);
   const [ditheredImage, setDitheredImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [settings, setSettings] = useState({
-    algorithm: 'floydSteinberg',
-    colorDepth: 1, // Bits per color channel
-    palette: 'bw', // "bw", "rgb", "custom", "2bit", "extreme"
-    customColors: 8,
-    diffusionFactor: 0.75,
-    resize: false, 
-    maxDimension: 400,
-    outputFormat: 'png', // png, gif, webp
-    enhanceContrast: false,
-    gifQuality: 10 // 1-30, where 1 is best quality, 30 is fastest
-  });
+  // Preset configurations
+  const presets = {
+    default: {
+      name: "Default",
+      settings: {
+        algorithm: 'floydSteinberg',
+        colorDepth: 1,
+        palette: 'bw',
+        customColors: 8,
+        diffusionFactor: 0.75,
+        resize: false,
+        maxDimension: 400,
+        outputFormat: 'png',
+        enhanceContrast: false,
+        gifQuality: 10
+      }
+    },
+    maxCompression: {
+      name: "Maximum Compression",
+      settings: {
+        algorithm: 'floydSteinberg',
+        colorDepth: 1,
+        palette: 'bw',
+        customColors: 8,
+        diffusionFactor: 0.65,
+        resize: true,
+        maxDimension: 200,
+        outputFormat: 'gif',
+        enhanceContrast: true,
+        gifQuality: 20
+      }
+    },
+    retroGame: {
+      name: "Retro Game",
+      settings: {
+        algorithm: 'ordered',
+        colorDepth: 1,
+        palette: 'bw',
+        customColors: 8,
+        diffusionFactor: 0.75,
+        resize: false,
+        maxDimension: 400,
+        outputFormat: 'png',
+        enhanceContrast: true,
+        gifQuality: 10
+      }
+    },
+    cgaNostalgia: {
+      name: "CGA Nostalgia",
+      settings: {
+        algorithm: 'ordered',
+        colorDepth: 1,
+        palette: '2bit',
+        customColors: 8,
+        diffusionFactor: 0.75,
+        resize: false,
+        maxDimension: 400,
+        outputFormat: 'png',
+        enhanceContrast: false,
+        gifQuality: 10
+      }
+    },
+    newspaper: {
+      name: "Newspaper",
+      settings: {
+        algorithm: 'atkinson',
+        colorDepth: 1,
+        palette: 'bw',
+        customColors: 8,
+        diffusionFactor: 0.5,
+        resize: false,
+        maxDimension: 400,
+        outputFormat: 'png',
+        enhanceContrast: true,
+        gifQuality: 10
+      }
+    },
+    webOptimized: {
+      name: "Web Optimized",
+      settings: {
+        algorithm: 'floydSteinberg',
+        colorDepth: 1,
+        palette: 'extreme',
+        customColors: 8,
+        diffusionFactor: 0.75,
+        resize: true,
+        maxDimension: 600,
+        outputFormat: 'webp',
+        enhanceContrast: true,
+        gifQuality: 10
+      }
+    },
+    pixelArt: {
+      name: "Pixel Art",
+      settings: {
+        algorithm: 'floydSteinberg',
+        colorDepth: 2,
+        palette: 'custom',
+        customColors: 16,
+        diffusionFactor: 0.85,
+        resize: true,
+        maxDimension: 300,
+        outputFormat: 'png',
+        enhanceContrast: false,
+        gifQuality: 10
+      }
+    }
+  };
+
+  const [settings, setSettings] = useState(presets.default.settings);
   const [originalSize, setOriginalSize] = useState(0);
   const [ditheredSize, setDitheredSize] = useState(0);
   const canvasRef = useRef(null);
@@ -77,6 +175,38 @@ const ImageDithering = () => {
       [name]: newValue,
     });
   };
+
+  // Save current settings as a custom preset
+  const saveCustomPreset = () => {
+    const presetName = prompt("Enter a name for your preset:");
+    if (!presetName) return;
+    
+    // Save to localStorage
+    try {
+      const savedPresets = JSON.parse(localStorage.getItem('ditherPresets') || '{}');
+      savedPresets[presetName] = {
+        name: presetName,
+        settings: {...settings}
+      };
+      localStorage.setItem('ditherPresets', JSON.stringify(savedPresets));
+      alert(`Preset "${presetName}" saved successfully!`);
+    } catch (error) {
+      console.error("Error saving preset:", error);
+      alert("Failed to save preset. Please try again.");
+    }
+  };
+  
+  // Load custom presets from localStorage
+  const [customPresets, setCustomPresets] = useState({});
+  
+  useEffect(() => {
+    try {
+      const savedPresets = JSON.parse(localStorage.getItem('ditherPresets') || '{}');
+      setCustomPresets(savedPresets);
+    } catch (error) {
+      console.error("Error loading presets:", error);
+    }
+  }, []);
 
   const applyDithering = () => {
     if (!originalImage) return;
@@ -539,6 +669,63 @@ const ImageDithering = () => {
         />
       </div>
       
+      {/* Presets */}
+      <div className="w-full max-w-2xl mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-gray-700 text-sm font-bold">
+            Presets:
+          </label>
+          <button
+            onClick={saveCustomPreset}
+            className="px-2 py-1 bg-green-100 hover:bg-green-200 text-green-800 rounded text-xs font-medium transition-colors flex items-center"
+          >
+            <span>Save Current Settings</span>
+          </button>
+        </div>
+        
+        <div className="flex flex-wrap gap-2 justify-center mb-2">
+          {Object.keys(presets).map((presetKey) => (
+            <button
+              key={presetKey}
+              onClick={() => setSettings(presets[presetKey].settings)}
+              className="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded shadow-sm text-sm font-medium transition-colors"
+            >
+              {presets[presetKey].name}
+            </button>
+          ))}
+        </div>
+        
+        {Object.keys(customPresets).length > 0 && (
+          <div className="mt-3">
+            <div className="text-xs text-gray-600 mb-2">Your Saved Presets:</div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {Object.keys(customPresets).map((presetKey) => (
+                <div key={presetKey} className="relative group">
+                  <button
+                    onClick={() => setSettings(customPresets[presetKey].settings)}
+                    className="px-3 py-2 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded shadow-sm text-sm font-medium transition-colors"
+                  >
+                    {customPresets[presetKey].name}
+                  </button>
+                  <button
+                    onClick={() => {
+                      const newPresets = {...customPresets};
+                      delete newPresets[presetKey];
+                      setCustomPresets(newPresets);
+                      localStorage.setItem('ditherPresets', JSON.stringify(newPresets));
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Delete preset"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      
       {/* Settings */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-4xl mb-6">
         <div className="p-4 bg-white shadow rounded">
@@ -816,8 +1003,11 @@ const ImageDithering = () => {
       </div>
       
       <div className="mt-10 text-sm text-gray-600 max-w-2xl text-center">
+        <p className="mb-4">
+          Try our presets for different effects or save your own custom presets. The "Maximum Compression" preset is optimized for the smallest possible file size, while "Pixel Art" and "CGA Nostalgia" create cool retro looks.
+        </p>
         <p>
-          Note: For maximum compression, use the GIF format with Black & White palette, resize to a smaller dimension, and adjust the GIF quality slider. This combination can achieve extreme file size reduction.
+          For extreme file size reduction, use the GIF format with Black & White palette, resize to a smaller dimension, and adjust the GIF quality slider.
         </p>
       </div>
     </div>
