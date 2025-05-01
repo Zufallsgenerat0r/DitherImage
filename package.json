@@ -2,7 +2,7 @@
     "name": "image-dithering-app",
     "version": "1.0.0",
     "private": true,
-    "homepage": "https://Zufallsgenerat0r.github.io/image-dithering-app",
+    "homepage": "https://zufallsgenerat0r.github.io/DitherImage",
     "dependencies": {
         "autoprefixer": "^10.4.14",
         "gif.js": "^0.2.0",
