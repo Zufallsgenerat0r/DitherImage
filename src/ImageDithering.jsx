@@ -133,7 +133,7 @@ const ImageDithering = () => {
     script.async = true;
     
     script.onload = () => {
-      console.log('GIF.js script loaded');
+      // GIF.js loaded successfully
     };
     
     document.body.appendChild(script);
@@ -181,7 +181,7 @@ const ImageDithering = () => {
     const presetName = prompt("Enter a name for your preset:");
     if (!presetName) return;
     
-    // Save to localStorage
+    // Save to localStorage and update state
     try {
       const savedPresets = JSON.parse(localStorage.getItem('ditherPresets') || '{}');
       savedPresets[presetName] = {
@@ -189,9 +189,9 @@ const ImageDithering = () => {
         settings: {...settings}
       };
       localStorage.setItem('ditherPresets', JSON.stringify(savedPresets));
+      setCustomPresets(savedPresets);
       alert(`Preset "${presetName}" saved successfully!`);
     } catch (error) {
-      console.error("Error saving preset:", error);
       alert("Failed to save preset. Please try again.");
     }
   };
@@ -203,8 +203,8 @@ const ImageDithering = () => {
     try {
       const savedPresets = JSON.parse(localStorage.getItem('ditherPresets') || '{}');
       setCustomPresets(savedPresets);
-    } catch (error) {
-      console.error("Error loading presets:", error);
+    } catch {
+      // localStorage unavailable or data corrupted; start with no custom presets
     }
   }, []);
 
@@ -265,7 +265,12 @@ const ImageDithering = () => {
     resultCtx.putImageData(ditheredData, 0, 0);
     
     // Handle different output formats
-    if (settings.outputFormat === 'gif' && window.GIF) {
+    if (settings.outputFormat === 'gif') {
+      if (!window.GIF) {
+        alert('GIF encoder is still loading. Please wait a moment and try again.');
+        setIsProcessing(false);
+        return;
+      }
       // Create actual GIF using gif.js
       createGif(resultCanvas, width, height);
     } else {
@@ -282,7 +287,9 @@ const ImageDithering = () => {
       
       // Calculate approximate size
       resultCanvas.toBlob((blob) => {
-        setDitheredSize(blob.size);
+        if (blob) {
+          setDitheredSize(blob.size);
+        }
         setIsProcessing(false);
       }, mimeType, quality);
     }
@@ -290,13 +297,6 @@ const ImageDithering = () => {
   
   // Create an actual GIF using gif.js
   const createGif = (canvas, width, height) => {
-    // Ensure GIF.js is loaded
-    if (!window.GIF) {
-      console.error('GIF.js not loaded');
-      setIsProcessing(false);
-      return;
-    }
-    
     // Configure GIF encoder
     const gif = new window.GIF({
       workers: 2,
@@ -323,11 +323,12 @@ const ImageDithering = () => {
       setDitheredSize(blob.size);
       setIsProcessing(false);
     });
-    
-    gif.on('progress', (p) => {
-      console.log(`GIF encoding progress: ${Math.round(p * 100)}%`);
+
+    gif.on('error', () => {
+      alert('GIF encoding failed. Please try a different format or smaller image.');
+      setIsProcessing(false);
     });
-    
+
     // Start the GIF rendering
     gif.render();
   };
