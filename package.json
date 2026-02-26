@@ -4,7 +4,6 @@
     "private": true,
     "homepage": "https://zufallsgenerat0r.github.io/DitherImage",
     "dependencies": {
-        "gif.js": "^0.2.0",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"
     },
